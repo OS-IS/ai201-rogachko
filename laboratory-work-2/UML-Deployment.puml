@@ -10,7 +10,7 @@ actor User
 node "<<Desktop>>" as dk {
     node "<<Operating System>>" {
         node "<<Web Browser>>" as browser {
-            component [Vue.js SPA (Frontend)] as vue
+            component [js] as vue
         }
     }
 }
