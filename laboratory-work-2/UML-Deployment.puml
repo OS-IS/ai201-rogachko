@@ -1,5 +1,5 @@
 @startuml
-title UML-діаграма розгортання ПП для Vue SPA
+title UML-діаграма розгортання ПП для Vue SPA з окремим сервером бази даних
 
 left to right direction
 
@@ -10,7 +10,7 @@ actor User
 node "<<Desktop>>" as dk {
     node "<<Operating System>>" {
         node "<<Web Browser>>" as browser {
-            component [js] as vue
+            component [JavaScript] as vue
         }
     }
 }
@@ -20,16 +20,20 @@ node "Azure Web Server" as serv1 {
         node "Docker Container" {
             [Backend (Application .NET8)] as app
             component [Vue.js SPA (Served)] as frontend
-            database "MS SQL Database" as db {
-                [Relation db]
-            }
         }
     }
 }
 
+node "Azure Database Server" as dbserv {
+    database "MS SQL Database" as db {
+        [Relation db]
+    }
+}
+
 User --> browser : Document editing
-browser --> frontend : Fetches Vue.js SPA files
-vue --> app : Sends API Requests
-app --> db : DB Requests
+browser --> frontend : Fetches JavaScript files (Vue.js SPA)
+vue --> app : Sends API Requests (AJAX/Fetch)
+app --> dbserv : Sends DB Requests
+dbserv --> db : Data Queries
 
 @enduml
