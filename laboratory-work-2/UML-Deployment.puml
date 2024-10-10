@@ -1,45 +1,35 @@
 @startuml
-
-title UML-діаграма розгортання ПП
+title UML-діаграма розгортання ПП для Vue SPA
 
 left to right direction
 
 skinparam componentStyle uml1
 
+actor User
+
 node "<<Desktop>>" as dk {
-    node "<<Operating System Windows/Linux>>" {
-        node "<<Web Browser>>" {
-            component [*.js]
+    node "<<Operating System>>" {
+        node "<<Web Browser>>" as browser {
+            component [Vue.js SPA (Frontend)] as vue
         }
     }
 }
 
-interface Keyboard
-
-interface Mouse
-
-Keyboard -- dk
-
-Mouse -- dk
-
-node "<<Server 1>>" as serv1 {
-	node "<<Operating System Linux>>" as l1 {
-	    node "<<Application Server Node.js>>" {
-		    component [*.js]
-		}
-	}
+node "Azure Web Server" as serv1 {
+    node "<<Operating System Linux (Ubuntu)>>" as l2 {
+        node "Docker Container" {
+            [Backend (Application .NET8)] as app
+            component [Vue.js SPA (Served)] as frontend
+            database "MS SQL Database" as db {
+                [Relation db]
+            }
+        }
+    }
 }
 
-dk -- serv1
-
-node "<<Server 2>>" as serv2 {
-	node "<<Operating System Linux>>" as l2 {
-	    node "<<Database Server MongoDB>>" {
-		    database JSON
-		}
-	}
-}
-
-serv1 -- serv2
+User --> browser : Document editing
+browser --> frontend : Fetches Vue.js SPA files
+vue --> app : Sends API Requests
+app --> db : DB Requests
 
 @enduml
