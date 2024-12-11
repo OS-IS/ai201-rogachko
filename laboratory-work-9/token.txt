@@ -1,0 +1,98 @@
+CREATE OR REPLACE FUNCTION user_login(
+    v_user_name VARCHAR,
+    v_password VARCHAR
+)
+RETURNS VARCHAR AS $$
+DECLARE
+    v_user_id INTEGER;
+    v_token VARCHAR;
+BEGIN
+    -- Діагностика: Перевірка вхідних параметрів
+    RAISE NOTICE 'Input username: %, password: %', v_user_name, v_password;
+
+    -- Перевірка правильності логіна і пароля
+    SELECT user_id INTO v_user_id
+    FROM users
+    WHERE user_name = v_user_name AND password_hash = md5(v_password);
+
+    -- Діагностика: Чи знайшовся користувач
+    IF NOT FOUND THEN
+        RAISE NOTICE 'User not found or password incorrect.';
+        RAISE EXCEPTION 'Invalid username or password';
+    END IF;
+
+    -- Генерація Token
+    v_token := md5(
+        inet_client_addr()::VARCHAR || 
+        inet_client_port() || 
+        pg_backend_pid() || 
+        NOW()
+    );
+
+    -- Додавання Token у таблицю
+    INSERT INTO sso_tokens (user_id, token)
+    VALUES (v_user_id, v_token);
+
+    RETURN v_token;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+
+
+CREATE OR REPLACE FUNCTION get_data_secure(
+    v_user_name TEXT,
+    v_token TEXT,
+    attribute TEXT,
+    value TEXT
+)
+RETURNS TABLE(a_id INT, name TEXT, year INT, spot_conf INT) AS $$
+BEGIN
+    -- Перевірка валідності токену
+    IF NOT EXISTS (
+        SELECT 1
+        FROM users u
+        JOIN sso_tokens t ON u.user_id = t.user_id
+        WHERE u.user_name = v_user_name AND t.token = v_token
+    ) THEN
+        RAISE EXCEPTION 'Authentication failed. Invalid token or username.';
+    END IF;
+
+    -- Виконання захищеного SQL-запиту
+    RETURN QUERY 
+    EXECUTE 'SELECT a_id, name::TEXT, year, spot_conf FROM auto WHERE ' 
+            || quote_ident(attribute) || ' = ' || quote_literal(value);
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+
+
+CREATE OR REPLACE FUNCTION user_logout(
+    v_user_name TEXT,
+    v_token TEXT
+)
+RETURNS INTEGER AS $$
+DECLARE
+    v_user_id INTEGER;
+BEGIN
+    -- Перевіряємо, чи існує користувач із таким токеном
+    SELECT u.user_id INTO v_user_id
+    FROM users u
+    JOIN sso_tokens t ON u.user_id = t.user_id
+    WHERE u.user_name = v_user_name AND t.token = v_token;
+
+    IF NOT FOUND THEN
+        RAISE NOTICE 'No active session found for user "%" with the provided token.', v_user_name;
+        RETURN -1; -- Сесія не знайдена
+    END IF;
+
+    -- Видаляємо токен із таблиці
+    DELETE FROM sso_tokens WHERE user_id = v_user_id AND token = v_token;
+
+    RAISE NOTICE 'Session terminated for user "%".', v_user_name;
+    RETURN 1; -- Успішне завершення
+END;
+$$ LANGUAGE plpgsql;

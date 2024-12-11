@@ -1,0 +1,70 @@
+CREATE OR REPLACE FUNCTION user_register_secure(
+    v_user_name VARCHAR, 
+    v_password VARCHAR
+)
+RETURNS INTEGER
+AS $$
+DECLARE
+    num_digits INT;
+    num_lowercase INT;
+    num_uppercase INT;
+    num_specials INT;
+BEGIN
+    -- Перевірка: Чи пароль є у списку гірших паролів
+    IF EXISTS (SELECT 1 FROM "probable-v2-top207" WHERE password = v_password) THEN
+        RAISE NOTICE 'Password "%" is in the list of bad passwords.', v_password;
+        RETURN -1; -- Код для слабкого паролю
+    END IF;
+
+    -- Перевірка: Довжина паролю ≥ N1
+    IF LENGTH(v_password) < 13 THEN
+        RAISE NOTICE 'Password is too short. Minimum length is 13 characters.';
+        RETURN -2; -- Код для короткого паролю
+    END IF;
+
+    -- Рахуємо кількість цифр
+    SELECT COUNT(*) INTO num_digits
+    FROM regexp_matches(v_password, '\d', 'g');
+    IF num_digits < 1 THEN
+        RAISE NOTICE 'Password must contain at least 1 digit.';
+        RETURN -3; -- Код для браку цифр
+    END IF;
+
+    -- Рахуємо кількість літер у нижньому регістрі
+    SELECT COUNT(*) INTO num_lowercase
+    FROM regexp_matches(v_password, '[a-z]', 'g');
+    IF num_lowercase < 4 THEN
+        RAISE NOTICE 'Password must contain at least 4 lowercase letters.';
+        RETURN -4; -- Код для браку літер у нижньому регістрі
+    END IF;
+
+    -- Рахуємо кількість літер у верхньому регістрі
+    SELECT COUNT(*) INTO num_uppercase
+    FROM regexp_matches(v_password, '[A-Z]', 'g');
+    IF num_uppercase < 2 THEN
+        RAISE NOTICE 'Password must contain at least 2 uppercase letters.';
+        RETURN -5; -- Код для браку літер у верхньому регістрі
+    END IF;
+
+    -- Рахуємо кількість спеціальних символів
+    SELECT COUNT(*) INTO num_specials
+    FROM regexp_matches(v_password, '[!@#$%^&*]', 'g');
+    IF num_specials < 4 THEN
+        RAISE NOTICE 'Password must contain at least 4 special characters.';
+        RETURN -6; -- Код для браку спеціальних символів
+    END IF;
+
+    -- Перевірка: Чи існує користувач із заданим іменем
+    IF EXISTS (SELECT 1 FROM users WHERE user_name = v_user_name) THEN
+        RAISE NOTICE 'User "%" already exists.', v_user_name;
+        RETURN -7; -- Код для існуючого користувача
+    END IF;
+
+    -- Додавання нового користувача
+    INSERT INTO users (user_name, password_hash)
+    VALUES (v_user_name, md5(v_password));
+
+    -- Успішне завершення
+    RETURN 1; -- Код успішного створення користувача
+END;
+$$ LANGUAGE plpgsql;
