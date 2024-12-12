@@ -1,0 +1,21 @@
+CREATE OR REPLACE FUNCTION user_register(
+    v_user_name VARCHAR, 
+    v_password VARCHAR
+)
+RETURNS INTEGER
+AS $$
+BEGIN
+    -- Перевірка: Чи пароль є у списку гірших паролів
+    IF EXISTS (SELECT 1 FROM "probable-v2-top207" WHERE password = v_password) THEN
+        RAISE NOTICE 'Password "%" is in the list of bad passwords.', v_password;
+        RETURN -1; -- Код для слабкого паролю
+    END IF;
+
+    -- Додавання нового користувача
+    INSERT INTO users (user_name, password_hash)
+    VALUES (v_user_name, md5(v_password));
+
+    -- Успішне завершення
+    RETURN 1; -- Код успішного створення користувача
+END;
+$$ LANGUAGE plpgsql;
